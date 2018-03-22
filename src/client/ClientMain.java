@@ -3,7 +3,11 @@ package client;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.HashSet;
 import java.util.Scanner;
+import java.util.Set;
+
+import node.NodeInterface;
 
 public class ClientMain {
 	public static void main(String [] args) {
@@ -25,10 +29,13 @@ public class ClientMain {
 			Scanner scanner = new Scanner(System.in);
 			while(true){
 				String text = scanner.nextLine().trim();
-		        if (text.equalsIgnoreCase("join")) {
-		            serverInterface.join(c_stub);
+		        if (text.equalsIgnoreCase("join")) {		   	
+		        	String text_groupe = scanner.nextLine().trim();
+		        	client.addGroup(text);
+		            serverInterface.join(c_stub,client.getGroups());            
 		        } else if (text.equalsIgnoreCase("leave")){
-		        	serverInterface.leave(c_stub);
+		        	String text_groupe = scanner.nextLine().trim();
+		        	serverInterface.leave(c_stub,);
 		        } else if (text.equalsIgnoreCase("name")){
 		        	System.out.println("Entrez votre pseudo :");
 		        	text = scanner.nextLine();

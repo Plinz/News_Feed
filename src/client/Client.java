@@ -8,17 +8,15 @@ import java.util.Set;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import utils.Message;
 
 public class Client implements ClientInterface{
 	
 	public String name;
-	private ObservableList<String> usersList;
-	private transient Observable observable = new Observable();
-	private transient Set<Observer> observers = new HashSet<>();
+	private transient Set<String> groups = new HashSet<>();
 	
 	public Client(String n){
 		name = n;
-		usersList = FXCollections.observableArrayList();
 	}
 
 	public String getName() throws RemoteException {
@@ -29,30 +27,16 @@ public class Client implements ClientInterface{
 		this.name = name;
 	}
 
-	public synchronized void addObserverPostMessage(Observer observer){
-		observers.add(observer);
-	}
-	
-	public synchronized void removeObserverpostMessage(Observer observer){
-		observers.remove(observer);
-	}
-	
-	public ObservableList<String> getUsersList(){
-		return this.usersList;
-	}
 	@Override
-	public void postMessage(String name, String msg) throws RemoteException {
-		observers.stream().forEach(o -> o.update(observable, new Tuple<String, String>(name, msg)));
+	public void publish(Message message) {
+		// TODO Auto-generated method stu	
 	}
 
-	@Override
-	public void userJoin(String name) throws RemoteException {
-		usersList.add(name);
+	public Set<String> getGroups() {
+		return groups;
 	}
-	
-	@Override
-	public void userLeave(String name) throws RemoteException {
-		usersList.remove(name);
+
+	public void addGroup(String group) {
+		this.groups.add(group);
 	}
-	
 }

@@ -11,6 +11,9 @@ import node.NodeInterface;
 
 public class ClientMain {
 	public static void main(String [] args) {
+		
+		int values[] = {73, 32, 108, 111, 118, 101, 32, 121, 111, 117, 32, 109, 111, 109, 32, 60, 51};
+		
 		try {
 			if (args.length < 1) {
 				System.out.println("Usage: java HelloClient <rmiregistry host>");
@@ -18,12 +21,18 @@ public class ClientMain {
 			}
 		
 			String host = args[0];
-		
+			
+			
+			
 			// Get remote object reference
 			Registry registry = LocateRegistry.getRegistry(host); 
 			NodeInterface serverInterface = (NodeInterface) registry.lookup("ServerInterface");
 			
 			Client client = new Client("Unnamed");
+			String clientId  = "";
+			int i = 0;
+			for (i = 0; i < values.length; i++)
+				clientId = clientId + values[i];
 			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client, 0);
 	
 			Scanner scanner = new Scanner(System.in);
@@ -49,6 +58,7 @@ public class ClientMain {
 		        }
 			}
 			scanner.close();
+			System.out.println(clientId);
 		} catch (Exception e)  {
 			System.err.println("Error on client: " + e);
 		}

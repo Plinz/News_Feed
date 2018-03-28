@@ -1,4 +1,4 @@
-package ring;
+package node;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,10 +24,10 @@ import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
 
 import client.ClientInterface;
-import node.NodeInterface;
+import ring.Token;
 import utils.Message;
 
-public class Node implements NodeInterface{
+public class Node implements NodeInterface {
 	private ConnectionFactory factory;
 	private String queueNameRecv;
 	private String queueNameSend;
@@ -190,16 +190,5 @@ public class Node implements NodeInterface{
 		}
 	}
 
-	public static void main(String[] args) {
-		if (args.length == 3){
-			Node n;
-			try {
-				n = new Node(args[0], args[1], Integer.parseInt(args[2]));
-				n.run();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-	}
-	
+
 }

@@ -12,17 +12,19 @@ import utils.Message;
 
 public class Client implements ClientInterface{
 	
-	public String name;
+	private String name;
+
 	private transient Set<String> groups = new HashSet<>();
 	
-	public Client(String n){
-		name = n;
+	public Client(String name){
+		this.name = name;
 	}
 
+	@Override
 	public String getName() throws RemoteException {
 		return name;
 	}
-	
+
 	public void setName(String name) throws RemoteException {
 		this.name = name;
 	}
@@ -38,5 +40,11 @@ public class Client implements ClientInterface{
 
 	public void addGroup(String group) {
 		this.groups.add(group);
+	}
+
+	public void addGroups(String [] groups) {
+		for(String group : groups){
+			this.addGroup(group);
+		}
 	}
 }

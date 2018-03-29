@@ -21,15 +21,14 @@ public class ClientMain {
 			String host = args[0];
 
 			// Get remote object reference
-			Registry registry = LocateRegistry.getRegistry(host); 
+			Registry registry = LocateRegistry.getRegistry(host, 1099); 
 			NodeInterface nodeInterface = (NodeInterface) registry.lookup("NodeInterface");
-			
 			Client client = new Client("Unnamed");
 			String clientId  = "";
 
 			for (int i = 0; i < values.length; i++)
 				clientId = clientId + values[i];
-			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client, 0);
+			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client, 1100);
 	
 			Scanner scanner = new Scanner(System.in);
 			while(true){

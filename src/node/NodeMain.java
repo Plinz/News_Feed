@@ -7,12 +7,11 @@ import java.rmi.server.UnicastRemoteObject;
 public class NodeMain {
 	public static void main(String[] args) {
 		if (args.length == 3){
-			Node n;
 			try {
 				NodeInterface nodeInterface = new Node(args[0], args[1], Integer.parseInt(args[2]));
 
-				NodeInterface s_stub = (NodeInterface) UnicastRemoteObject.exportObject(nodeInterface, 10000);
-				Registry registry = LocateRegistry.createRegistry(10000);
+				NodeInterface s_stub = (NodeInterface) UnicastRemoteObject.exportObject(nodeInterface, 1099);
+				Registry registry = LocateRegistry.createRegistry(1099);
 				registry.bind("NodeInterface", s_stub);
 
 				System.out.println ("Server ready");

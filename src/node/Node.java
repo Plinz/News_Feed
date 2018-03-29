@@ -67,7 +67,7 @@ public class Node implements NodeInterface {
 	}
 	
 	private void receive() throws Exception{
-		System.out.println(" ["+this.id+"] En attente d'un message");
+		//System.out.println(" ["+this.id+"] En attente d'un message");
 		Consumer consumer = new DefaultConsumer(recv) {
 		  @Override
 		  public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
@@ -110,7 +110,11 @@ public class Node implements NodeInterface {
 		for(Message m : messages){
 			for(String group : m.getGroups()){
 				for(ClientInterface client : clientsByGroup.get(group)){
-					client.publish(m);
+					try {
+						client.publish(m);
+					} catch (RemoteException e) {
+						e.printStackTrace();
+					}
 				}
 			}
 		}

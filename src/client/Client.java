@@ -31,7 +31,8 @@ public class Client implements ClientInterface{
 
 	@Override
 	public void publish(Message message) {
-		// TODO Auto-generated method stu	
+		System.out.println("Client "+ message.getClient() +" a envoyé le message suivant:");
+		System.out.println("\t "+message.getMessage());
 	}
 
 	public Set<String> getGroups() {

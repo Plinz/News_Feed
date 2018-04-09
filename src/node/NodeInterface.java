@@ -10,5 +10,6 @@ import utils.Message;
 public interface NodeInterface extends Remote {
 	void join(ClientInterface client, Set<String> groups) throws RemoteException;
 	void leave(ClientInterface client, Set<String> groups) throws RemoteException;
-	void sendMessage(ClientInterface client, Message message) throws RemoteException;
+	void sendMessage(Message message) throws RemoteException;
+	int getNodeId() throws RemoteException;
 }

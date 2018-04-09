@@ -8,10 +8,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.rmi.RemoteException;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -27,7 +24,7 @@ import client.ClientInterface;
 import ring.Token;
 import utils.Message;
 
-public class Node implements NodeInterface {
+public class Node implements NodeInterface, Runnable{
 	private ConnectionFactory factory;
 	private String queueNameRecv;
 	private String queueNameSend;
@@ -35,7 +32,7 @@ public class Node implements NodeInterface {
 	private Channel send;
 	private int id;
 	private boolean electionDone;
-	private Map<String, Set<ClientInterface>> clientsByGroup;
+	private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>> clientsByGroup;
 	private Queue<Message> msgQueue;
 	
 	public Node(String queueNameRecv, String queueNameSend, int id) throws Exception{
@@ -49,7 +46,7 @@ public class Node implements NodeInterface {
 		this.send.queueDeclare(this.queueNameSend, false, false, false, null);
 		this.id = id;
 		this.electionDone = false;
-		this.clientsByGroup = new ConcurrentHashMap<String, Set<ClientInterface>>();
+		this.clientsByGroup = new ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>>();
 		this.msgQueue = new ConcurrentLinkedQueue<Message>();
 	}
 	
@@ -101,26 +98,40 @@ public class Node implements NodeInterface {
 	}
 	
 
-	private void messagesGestion(Token tok) {
+	private void messagesGestion(Token tok) throws Exception {
+
 		List<Message> messages = tok.getMessages();
+		List<Message> messagesToRemove = new ArrayList<>();
 		Message tmp;
-		while((tmp = messages.get(0)) != null && tmp.getNodeID() == this.id){
-			messages.remove(tmp);
-		}
-		for(Message m : messages){
-			for(String group : m.getGroups()){
-				for(ClientInterface client : clientsByGroup.get(group)){
-					try {
-						client.publish(m);
-					} catch (RemoteException e) {
-						e.printStackTrace();
+		if(messages.size()>0) {
+
+			for (Message m : messages) {
+				System.out.println("Node "+this.id+" "+m.getMessage());
+				for (String group : m.getGroups()) {
+					if (clientsByGroup.get(group) != null) {
+						for (ClientInterface client : clientsByGroup.get(group)) {
+							try {
+								if (client != m.getClient())
+									client.publish(m);
+							} catch (RemoteException e) {
+								e.printStackTrace();
+							}
+						}
 					}
 				}
 			}
+
+			for (Message m : messages) {
+				if (m.getNodeID() == this.id) {
+					messagesToRemove.add(m);
+				}
+			}
+			messages.removeAll(messagesToRemove);
 		}
 		while((tmp = msgQueue.poll()) != null){
 			tok.getMessages().add(tmp);
 		}
+		send(tok);
 	}
 	
 	private void election(Token tok) throws Exception {
@@ -149,7 +160,8 @@ public class Node implements NodeInterface {
 			out.writeObject(token);
 			out.flush();
 			send.basicPublish("", this.queueNameSend, null, bos.toByteArray());
-		    System.out.println(" ["+this.id+"] Sent '" + token + "'");
+			if(token.getMessages().size()>0)
+				System.out.println(" ["+this.id+"] Sent '" + token.getMessages().get(0).getNodeID()+ "'");
 		} finally {
 			try {
 				bos.close();
@@ -159,39 +171,72 @@ public class Node implements NodeInterface {
 		}
 	}
 
+	/**
+	 * Ajoute un client à un ou plusieurs groupes. Si ce groupe n'est pas encore existant alors
+	 * une nouvelle liste de client est créer associé à ce nouveau groupe
+	 *
+	 * @param client Le client a ajouter dans un groupe
+	 * @param groups La liste de groupes dans lesquels ajouter le client
+	 * @throws RemoteException
+	 */
 	@Override
 	public void join(ClientInterface client, Set<String> groups) throws RemoteException {
 		for(String group : groups){
-			Set<ClientInterface> clients = this.clientsByGroup.get(group);
+			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
 			if (clients == null){
-				clients = new ConcurrentSkipListSet<ClientInterface>();
+				clients = new ConcurrentLinkedQueue<ClientInterface>();
 			}
 			clients.add(client);
 			this.clientsByGroup.put(group, clients);
+
 		}
+		System.out.println("Ajout du client "+client.getName()+" au groupe "+groups);
 	}
 
 	@Override
 	public void leave(ClientInterface client, Set<String> groups) throws RemoteException {
 		for(String group : groups){
-			Set<ClientInterface> clients = this.clientsByGroup.get(group);
+			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
 			if (clients != null){
 				clients.remove(client);
 			}
 		}
+		System.out.println("Le client "+client.getName()+" quitte le "+groups);
 	}
 
+	/**
+	 * Envoi un message à une liste de groupe contenu dans le message.
+	 * Avant d'envoyer le message, on vérifie que le client envoi des messages uniquement au groupe auquels il appartient,
+	 * sinon on retire ce groupe du message. Le message est envoyé uniquement si la liste des groupes et le message ne sont pas vides.
+	 *
+	 * @param message Le message émis contenant, l'éméetteur du message, la liste des groupes
+	 * @throws RemoteException
+	 */
 	@Override
-	public void sendMessage(ClientInterface client, Message message) throws RemoteException {
-		for(String group : message.getGroups()){
-			Set<ClientInterface> clients = this.clientsByGroup.get(group);
-			if (!clients.contains(client)){
-				message.getGroups().remove(group);
+	public void sendMessage(Message message) throws RemoteException {
+		ArrayList<String> groupsToRemoveFromMsg =  new ArrayList<>();
+		for(String group : message.getGroups()) {
+			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
+
+			if (clients == null || !clients.contains(message.getClient())) {
+				groupsToRemoveFromMsg.add(group);
 			}
 		}
+		if(groupsToRemoveFromMsg.size()>0)
+			message.getGroups().removeAll(groupsToRemoveFromMsg);
+
+		System.out.println("Client : "+ message.getClient().getName()+" Message : "+message.getMessage()+"Groupes :"+message.getGroups());
 		if(!message.getGroups().isEmpty() && !message.getMessage().trim().isEmpty()){
 			msgQueue.offer(message);
 		}
+	}
+
+	/**
+	 * @return L'identifiant du noeud
+	 * @throws RemoteException
+	 */
+	public int getNodeId() throws RemoteException{
+		return this.id;
 	}
 
 

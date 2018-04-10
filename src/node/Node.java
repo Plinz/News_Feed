@@ -9,6 +9,7 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.rmi.RemoteException;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -23,6 +24,7 @@ import com.rabbitmq.client.Envelope;
 import client.ClientInterface;
 import ring.Token;
 import utils.Message;
+import utils.Tuple;
 
 public class Node implements NodeInterface, Runnable{
 	private ConnectionFactory factory;
@@ -33,7 +35,14 @@ public class Node implements NodeInterface, Runnable{
 	private int id;
 	private boolean electionDone;
 	private ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>> clientsByGroup;
+
+	private HashSet<ClientInterface> listClientsRing;
+	private ConcurrentLinkedQueue<ClientInterface> listRemovedClients,listNewClients;
+	private HashSet<String> listGroupsRing;
+	private ConcurrentLinkedQueue<String> listRemovedGroups,listNewGroups;
+
 	private Queue<Message> msgQueue;
+	private Token lastToken;
 	
 	public Node(String queueNameRecv, String queueNameSend, int id) throws Exception{
 		this.factory = new ConnectionFactory();
@@ -48,11 +57,19 @@ public class Node implements NodeInterface, Runnable{
 		this.electionDone = false;
 		this.clientsByGroup = new ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>>();
 		this.msgQueue = new ConcurrentLinkedQueue<Message>();
+
+		this.listClientsRing = new HashSet<>();
+		this.listRemovedClients = new ConcurrentLinkedQueue<>();
+		this.listNewClients = new ConcurrentLinkedQueue<>();
+
+		this.listGroupsRing = new HashSet<>();
+		this.listRemovedGroups = new ConcurrentLinkedQueue<>();
+		this.listNewGroups = new ConcurrentLinkedQueue<>();
 	}
 	
 	public void run(){
 		try {
-			Token token = new Token(true);
+			Token token = new Token(true,this.id);
 			token.getMessages().add(new Message(id, null, ""+this.id));
 			send(token);
 			while (true){
@@ -78,7 +95,12 @@ public class Node implements NodeInterface, Runnable{
 						if(tok.isElection()){
 							election(tok);
 						} else {
+							lastToken = tok;
 							messagesGestion(tok);
+							clearListsToken(tok);
+							updateAndCleanListRing(tok);
+							updateListToken(tok);
+							send(tok);
 						}
 					} finally {
 						try {
@@ -106,12 +128,11 @@ public class Node implements NodeInterface, Runnable{
 		if(messages.size()>0) {
 
 			for (Message m : messages) {
-				System.out.println("Node "+this.id+" "+m.getMessage());
 				for (String group : m.getGroups()) {
 					if (clientsByGroup.get(group) != null) {
 						for (ClientInterface client : clientsByGroup.get(group)) {
 							try {
-								if (client != m.getClient())
+								if (client.getId() != m.getClient().getId())
 									client.publish(m);
 							} catch (RemoteException e) {
 								e.printStackTrace();
@@ -131,9 +152,8 @@ public class Node implements NodeInterface, Runnable{
 		while((tmp = msgQueue.poll()) != null){
 			tok.getMessages().add(tmp);
 		}
-		send(tok);
 	}
-	
+
 	private void election(Token tok) throws Exception {
 		Message m = tok.getMessages().get(0);
 		int precID = Integer.parseInt(m.getMessage());
@@ -185,11 +205,13 @@ public class Node implements NodeInterface, Runnable{
 			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
 			if (clients == null){
 				clients = new ConcurrentLinkedQueue<ClientInterface>();
+				this.listNewGroups.add(group);
 			}
 			clients.add(client);
 			this.clientsByGroup.put(group, clients);
 
 		}
+		listNewClients.add(client);
 		System.out.println("Ajout du client "+client.getName()+" au groupe "+groups);
 	}
 
@@ -197,10 +219,15 @@ public class Node implements NodeInterface, Runnable{
 	public void leave(ClientInterface client, Set<String> groups) throws RemoteException {
 		for(String group : groups){
 			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
-			if (clients != null){
+			if (clients != null && clients.contains(client)){
 				clients.remove(client);
+				if (clients.size() == 0){
+					this.listRemovedGroups.add(group);
+					this.clientsByGroup.remove(clients);
+				}
 			}
 		}
+		listRemovedClients.add(client);
 		System.out.println("Le client "+client.getName()+" quitte le "+groups);
 	}
 
@@ -239,5 +266,99 @@ public class Node implements NodeInterface, Runnable{
 		return this.id;
 	}
 
+	public Set<String> getListGroupes(){
+		/*Set<String> listGroupes = new HashSet<>();
+		int i =0;
+		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
+			listGroupes.add(mapentry.getKey());
+			i++;
+		}*/
+		lastToken.printContenuToken();
+		return this.listGroupsRing;
+	}
+
+	public HashSet<ClientInterface> getListClients(){
+		/*HashSet<ClientInterface> clientsList = new HashSet<>();
+
+		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
+			for(ClientInterface client : mapentry.getValue()){
+				clientsList.add(client);
+			}
+		}*/
+		return this.listClientsRing;
+	}
+
+	private void clearListsToken(Token token){
+		// Vide la liste listAddedClients du token ajouté par le noeud
+		ArrayList<Tuple<Integer,ClientInterface>> tempListClient = new ArrayList<>();
+		for(Tuple<Integer,ClientInterface> tuple : token.getListAddedClients()){
+			if(tuple.x == this.id)
+				tempListClient.add(tuple);
+		}
+		token.getListAddedClients().removeAll(tempListClient);
+
+		// Vide la liste listRemovedClients du token ajouté par le noeud
+		tempListClient.clear();
+		for(Tuple<Integer,ClientInterface> tuple : token.getListRemovedClients()){
+			if(tuple.x == this.id)
+				tempListClient.add(tuple);
+		}
+		token.getListRemovedClients().removeAll(tempListClient);
+
+		// Vide la liste listAddedGroups du token ajouté par le noeud
+		ArrayList<Tuple<Integer,String>> tempListGroup = new ArrayList<>();
+		for(Tuple<Integer,String> tuple : token.getListAddedGroups()){
+			if(tuple.x == this.id)
+				tempListGroup.add(tuple);
+		}
+		token.getListAddedGroups().removeAll(tempListGroup);
+
+		// Vide la liste listRemovedGroups du token ajouté par le noeud
+		tempListGroup.clear();
+		for(Tuple<Integer,String> tuple : token.getListAddedGroups()){
+			if(tuple.x == this.id)
+				tempListGroup.add(tuple);
+		}
+		token.getListRemovedGroups().removeAll(tempListGroup);
+	}
+
+	private void updateAndCleanListRing(Token token){
+
+		for(Tuple<Integer,ClientInterface> tuple : token.getListAddedClients()){
+			this.listClientsRing.add(tuple.y);
+		}
+
+		for(Tuple<Integer,ClientInterface> tuple : token.getListRemovedClients()){
+			this.listClientsRing.remove(tuple.y);
+		}
+
+		for(Tuple<Integer,String> tuple : token.getListAddedGroups()){
+			this.listGroupsRing.add(tuple.y);
+		}
+
+		for(Tuple<Integer,String> tuple : token.getListRemovedGroups()){
+			this.listGroupsRing.remove(tuple.y);
+		}
+	}
+
+	private void updateListToken(Token token){
+
+		for(ClientInterface client : this.listNewClients){
+			token.getListAddedClients().add(new Tuple<>(this.id,client));
+		}
+
+		for(ClientInterface client : this.listRemovedClients){
+			token.getListRemovedClients().add(new Tuple<>(this.id,client));
+		}
+
+		for(String group : this.listNewGroups){
+			token.getListAddedGroups().add(new Tuple<>(this.id,group));
+		}
+
+		for(String group : this.listRemovedGroups){
+			token.getListRemovedGroups().add(new Tuple<>(this.id,group));
+		}
+
+	}
 
 }

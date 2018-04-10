@@ -8,4 +8,5 @@ import utils.Message;
 public interface ClientInterface extends Remote{
 	void publish(Message message) throws RemoteException;
 	String getName() throws RemoteException;
+	int getId() throws RemoteException;
 }

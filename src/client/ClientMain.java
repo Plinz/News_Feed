@@ -28,7 +28,7 @@ public class ClientMain {
 
 			// Get remote object reference
 			Registry registry = LocateRegistry.getRegistry(host, 1099);
-			System.out.println("Saisir le numéro de port:");
+			System.out.println("Saisir le numéro du noeud:");
 			int numServer = Integer.parseInt(scanner.nextLine().trim());
 			String nameNode = "NodeInterface_"+numServer;
 
@@ -36,7 +36,7 @@ public class ClientMain {
 			System.out.println("Connected to "+nameNode);
 
 			int randomInt = randomGenerator.nextInt(1000);
-			Client client = new Client("clientName"+randomInt);
+			Client client = new Client(randomInt,"clientName"+randomInt);
 			String clientId  = String.valueOf(randomInt);
 
 			for (int i = 0; i < values.length; i++)
@@ -62,12 +62,17 @@ public class ClientMain {
 		        } else if (text.equalsIgnoreCase("send")) {
 					System.out.println("Saisisez votre message:");
 					text = scanner.nextLine();
-					Message msg = new Message(nodeInterface.getNodeId(),c_stub,text);
+					Message msg = new Message(nodeInterface.getNodeId(), c_stub, text);
 					System.out.println("Saisisez les groupes où envoyer le message:");
-					String [] groupes = scanner.nextLine().split(" ");
+					String[] groupes = scanner.nextLine().split(" ");
 					msg.addGroups(groupes);
 					nodeInterface.sendMessage(msg);
-
+				} else if (text.equalsIgnoreCase("groupes")) {
+					System.out.println("List des groupes");
+					System.out.println(nodeInterface.getListGroupes());
+		        }else if(text.equalsIgnoreCase("clients")){
+					System.out.println("List des clients");
+					nodeInterface.getListClients();
 				} else if (text.equalsIgnoreCase("name")){
 		        	System.out.println("Entrez votre pseudo :");
 		        	text = scanner.nextLine();

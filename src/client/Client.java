@@ -13,10 +13,12 @@ import utils.Message;
 public class Client implements ClientInterface{
 	
 	private String name;
+	private int id;
 
 	private transient Set<String> groups = new HashSet<>();
 	
-	public Client(String name){
+	public Client(int id ,String name){
+		this.id = id;
 		this.name = name;
 	}
 
@@ -30,8 +32,8 @@ public class Client implements ClientInterface{
 	}
 
 	@Override
-	public void publish(Message message) {
-		System.out.println("Client "+ message.getClient() +" a envoyé le message suivant:");
+	public void publish(Message message) throws RemoteException {
+		System.out.println("Client "+ message.getClient().getName() +" a envoyé le message suivant:");
 		System.out.println("\t "+message.getMessage());
 	}
 
@@ -48,4 +50,8 @@ public class Client implements ClientInterface{
 			this.addGroup(group);
 		}
 	}
+
+	public int getId(){
+	    return this.id;
+    }
 }

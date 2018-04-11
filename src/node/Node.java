@@ -307,6 +307,17 @@ public class Node implements NodeInterface, Runnable{
 		return randomInt;
 	}
 
+	public boolean checkAvailableClient(ClientInterface client, String name) throws RemoteException{
+		while(!hasToken);
+		boolean isPresent = false;
+		HashSet<String> listNameClient = new HashSet<>();
+		for(ClientInterface cl : this.listClientsRing){
+			if(cl.equals(name))
+				isPresent = true;
+		}
+		return isPresent;
+	}
+
 
 	public Set<String> getListGroupes() throws RemoteException {
 		return this.listGroupsRing;

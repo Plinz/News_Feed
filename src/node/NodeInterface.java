@@ -16,4 +16,5 @@ public interface NodeInterface extends Remote {
 	HashSet<ClientInterface> getListClients() throws RemoteException;
 	Set<String> getListGroupes() throws RemoteException;
 	int askIdClient() throws RemoteException;
+	boolean checkAvailableClient(ClientInterface client, String name) throws RemoteException;
 }

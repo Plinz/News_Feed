@@ -33,8 +33,8 @@ public class ClientMain {
 
 			int idClient = nodeInterface.askIdClient();
 			Client client = new Client(idClient,"clientName"+idClient);
-
 			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client,0);
+			setAndCheckNameClient(client,c_stub,nodeInterface,scanner);
 			HashSet<String> groupes;
 
 			while(true){
@@ -104,4 +104,15 @@ public class ClientMain {
 		return collection;
 	}
 
+	static void setAndCheckNameClient(Client client,ClientInterface c_stub,NodeInterface nodeInterface, Scanner scanner) throws RemoteException {
+		System.out.println("Entrez votre pseudo :");
+		String text = scanner.nextLine();
+		if(!text.isEmpty()) {
+			while(nodeInterface.checkAvailableClient(c_stub,text)!=false){
+				System.out.println("Entrez votre pseudo :");
+				text = scanner.nextLine();
+			}
+			client.setName(text);
+		}
+	}
 }

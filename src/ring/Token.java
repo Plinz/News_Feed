@@ -1,12 +1,14 @@
 package ring;
 
 import java.io.Serializable;
+import java.rmi.RemoteException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import client.ClientInterface;
 import utils.Message;
+import utils.Triple;
 import utils.Tuple;
 
 public class Token implements Serializable {
@@ -20,6 +22,8 @@ public class Token implements Serializable {
 	private HashSet<Tuple<Integer, String>> listRemovedGroups;
 	private HashSet<Tuple<Integer, String>> listAddedGroups;
 
+	private HashSet<Triple<Integer, String,Integer>> listRemovedGroupsVoted;
+
 	public Token(boolean isElection, int senderNode) {
 		super();
 		this.messages = new ArrayList<Message>();
@@ -30,6 +34,7 @@ public class Token implements Serializable {
 
 		this.listAddedClients = new HashSet<>();
 		this.listAddedGroups = new HashSet<>();
+		this.listRemovedGroupsVoted = new HashSet<>();
 	}
 
 	public List<Message> getMessages() {
@@ -56,6 +61,10 @@ public class Token implements Serializable {
 		return listRemovedGroups;
 	}
 
+	public HashSet<Triple<Integer, String, Integer>> getListRemovedGroupsVoted() {
+		return listRemovedGroupsVoted;
+	}
+
 	public HashSet<Tuple<Integer, ClientInterface>> getListAddedClients() {
 		return listAddedClients;
 	}
@@ -64,7 +73,7 @@ public class Token implements Serializable {
 		return listAddedGroups;
 	}
 
-	public void printContenuToken(){
+	public void printContenuToken() throws RemoteException {
 
 		System.out.println("Liste des messages :");
 		for(Message msg :this.getMessages())
@@ -77,5 +86,13 @@ public class Token implements Serializable {
 		System.out.println("Liste des groupes enlevés :");
 		for(Tuple<Integer,String> tuple : getListRemovedGroups())
 			System.out.println("\t"+tuple.y);
+
+		System.out.println("Liste des nouveaux groupes :");
+		for(Tuple<Integer,ClientInterface> tuple : getListAddedClients())
+			System.out.println("\t"+tuple.y.getName());
+
+		System.out.println("Liste des clients enlevés :");
+		for(Tuple<Integer,ClientInterface> tuple : getListRemovedClients())
+			System.out.println("\t"+tuple.y.getName());
 	}
 }

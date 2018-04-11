@@ -51,6 +51,13 @@ public class Client implements ClientInterface{
 		}
 	}
 
+	public void removeGroups(String [] groups) {
+		for(String group : groups){
+			this.groups.remove(group);
+		}
+	}
+
+
 	public int getId(){
 	    return this.id;
     }

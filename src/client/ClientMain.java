@@ -1,11 +1,14 @@
 package client;
 
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
+import java.util.HashSet;
 import java.util.Random;
 import java.util.Scanner;
+import java.util.Set;
 
 import node.NodeInterface;
 import utils.Message;
@@ -49,34 +52,36 @@ public class ClientMain {
 
 		        if (text.equalsIgnoreCase("join")) {
 		        	System.out.println("Saisir les différents groupes");
-		        	String [] groupes = scanner.nextLine().split(" ");
-					client.addGroups(groupes);
-		            nodeInterface.join(c_stub,client.getGroups());
+		        	HashSet<String> groupes = tabToCollection(scanner.nextLine().split(" "));
+					client.getGroups().addAll(groupes);
+		            nodeInterface.join(c_stub,groupes);
 
 		        } else if (text.equalsIgnoreCase("leave")){
 					System.out.println("Saisir les différents groupes");
-		        	String [] groupes = scanner.nextLine().split(" ");
-					client.addGroups(groupes);
-		        	nodeInterface.leave(c_stub,client.getGroups());
+		        	HashSet<String> groupes = tabToCollection(scanner.nextLine().split(" "));
+					client.getGroups().removeAll(groupes);
+		        	nodeInterface.leave(c_stub,groupes);
 
 		        } else if (text.equalsIgnoreCase("send")) {
 					System.out.println("Saisisez votre message:");
 					text = scanner.nextLine();
 					Message msg = new Message(nodeInterface.getNodeId(), c_stub, text);
 					System.out.println("Saisisez les groupes où envoyer le message:");
-					String[] groupes = scanner.nextLine().split(" ");
-					msg.addGroups(groupes);
+					HashSet<String> groupes = tabToCollection(scanner.nextLine().split(" "));
+					msg.getGroups().addAll(groupes);
 					nodeInterface.sendMessage(msg);
+
 				} else if (text.equalsIgnoreCase("groupes")) {
-					System.out.println("List des groupes");
-					System.out.println(nodeInterface.getListGroupes());
+					afficheListGroupes(nodeInterface);
+
 		        }else if(text.equalsIgnoreCase("clients")){
-					System.out.println("List des clients");
-					nodeInterface.getListClients();
+					afficheListClients(nodeInterface);
+
 				} else if (text.equalsIgnoreCase("name")){
 		        	System.out.println("Entrez votre pseudo :");
 		        	text = scanner.nextLine();
 		        	client.setName(text.trim());
+
 		        }  else if (text.equalsIgnoreCase("quit")){
 		        	break;
 		        } else {
@@ -90,4 +95,23 @@ public class ClientMain {
 			e.printStackTrace();
 		}
 	}
+
+	static void afficheListClients(NodeInterface nodeInterface) throws RemoteException {
+		System.out.println("List des clients");
+		for(ClientInterface client : nodeInterface.getListClients())
+			System.out.println("\t"+client.getName());
+	}
+	static void afficheListGroupes(NodeInterface nodeInterface) throws RemoteException{
+		System.out.println("List des groupes");
+		for(String group : nodeInterface.getListGroupes())
+			System.out.println("\t"+group);
+	}
+	static HashSet<String> tabToCollection(String [] tab){
+		HashSet<String> collection = new HashSet<>();
+		for(String s : tab){
+			collection.add(s);
+		}
+		return collection;
+	}
+
 }

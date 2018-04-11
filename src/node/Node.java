@@ -181,6 +181,7 @@ public class Node implements NodeInterface, Runnable{
 			out = new ObjectOutputStream(bos);   
 			out.writeObject(token);
 			out.flush();
+			send.
 			send.basicPublish("", this.queueNameSend, null, bos.toByteArray());
 			if(token.getMessages().size()>0)
 				System.out.println(" ["+this.id+"] Sent '" + token.getMessages().get(0).getNodeID()+ "'");
@@ -287,26 +288,25 @@ public class Node implements NodeInterface, Runnable{
 		return this.id;
 	}
 
-	public Set<String> getListGroupes() throws RemoteException {
-		/*Set<String> listGroupes = new HashSet<>();
-		int i =0;
-		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
-			listGroupes.add(mapentry.getKey());
-			i++;
+	public int askIdClient() throws RemoteException{
+		Random randomGenerator = new Random();
+		int randomInt = randomGenerator.nextInt(1000);
+		HashSet<Integer> listIdClient = new HashSet<>();
+		for(ClientInterface client : this.listClientsRing){
+			listIdClient.add(client.getId());
+		}
+		while(listIdClient.contains(randomInt))
+			randomInt = randomGenerator.nextInt(1000);
 
-		}*/
+		return randomInt;
+	}
+
+	public Set<String> getListGroupes() throws RemoteException {
 		lastToken.printContenuToken();
 		return this.listGroupsRing;
 	}
 
 	public HashSet<ClientInterface> getListClients(){
-		/*HashSet<ClientInterface> clientsList = new HashSet<>();
-
-		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
-			for(ClientInterface client : mapentry.getValue()){
-				clientsList.add(client);
-			}
-		}*/
 		return this.listClientsRing;
 	}
 
@@ -401,4 +401,13 @@ public class Node implements NodeInterface, Runnable{
 
 	}
 
+
 }
+
+/*Set<String> listGroupes = new HashSet<>();
+		int i =0;
+		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
+			listGroupes.add(mapentry.getKey());
+			i++;
+
+		}*/

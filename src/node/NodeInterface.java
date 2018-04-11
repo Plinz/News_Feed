@@ -15,4 +15,5 @@ public interface NodeInterface extends Remote {
 	int getNodeId() throws RemoteException;
 	HashSet<ClientInterface> getListClients() throws RemoteException;
 	Set<String> getListGroupes() throws RemoteException;
+	int askIdClient() throws RemoteException;
 }

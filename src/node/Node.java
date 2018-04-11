@@ -9,10 +9,10 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.rmi.RemoteException;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 import client.Client;
 import com.rabbitmq.client.AMQP;
@@ -44,7 +44,8 @@ public class Node implements NodeInterface, Runnable{
 	private ConcurrentLinkedQueue<String> listRemovedGroups,listNewGroups;
 
 	private Queue<Message> msgQueue;
-	private Token lastToken;
+	private boolean hasToken;
+	private ReentrantLock processToken;
 	
 	public Node(String queueNameRecv, String queueNameSend, int id) throws Exception{
 		this.factory = new ConnectionFactory();
@@ -67,6 +68,9 @@ public class Node implements NodeInterface, Runnable{
 		this.listGroupsRing = new HashSet<>();
 		this.listRemovedGroups = new ConcurrentLinkedQueue<>();
 		this.listNewGroups = new ConcurrentLinkedQueue<>();
+		hasToken = false;
+		processToken = new ReentrantLock();
+
 	}
 	
 	public void run(){
@@ -74,16 +78,15 @@ public class Node implements NodeInterface, Runnable{
 			Token token = new Token(true,this.id);
 			token.getMessages().add(new Message(id, null, ""+this.id));
 			send(token);
-			while (true){
-				receive();
-			}
+			receive();
+
 		} catch (Exception e) {
 			e.printStackTrace();
 		}	
 	}
 	
 	private void receive() throws Exception{
-		//System.out.println(" ["+this.id+"] En attente d'un message");
+
 		Consumer consumer = new DefaultConsumer(recv) {
 		  @Override
 		  public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
@@ -94,16 +97,21 @@ public class Node implements NodeInterface, Runnable{
 					try {
 						in = new ObjectInputStream(bis);
 						Token tok = (Token) in.readObject();
+						processToken.lock();
+						hasToken = true;
+						processToken.unlock();
 						if(tok.isElection()){
 							election(tok);
 						} else {
-							lastToken = tok;
 							messagesGestion(tok);
 							updateAndCleanListRing(tok);
 							clearListsToken(tok);
 							updateListToken(tok);
 							send(tok);
 						}
+						processToken.lock();
+						hasToken = false;
+						processToken.unlock();
 					} finally {
 						try {
 							if (in != null) {
@@ -160,10 +168,11 @@ public class Node implements NodeInterface, Runnable{
 		Message m = tok.getMessages().get(0);
 		int precID = Integer.parseInt(m.getMessage());
 		if (precID != id){
-			if (precID > id)
-				precID = id;
-			m.setMessage(""+precID);
-			send(tok);
+			if (precID < id) {
+				//precID = id;
+				//m.setMessage("" + precID);
+				send(tok);
+			}
 		} else if (!this.electionDone){
 			this.electionDone = true;
 			tok.setElection(false);
@@ -181,10 +190,8 @@ public class Node implements NodeInterface, Runnable{
 			out = new ObjectOutputStream(bos);   
 			out.writeObject(token);
 			out.flush();
-			send.
 			send.basicPublish("", this.queueNameSend, null, bos.toByteArray());
-			if(token.getMessages().size()>0)
-				System.out.println(" ["+this.id+"] Sent '" + token.getMessages().get(0).getNodeID()+ "'");
+
 		} finally {
 			try {
 				bos.close();
@@ -230,7 +237,6 @@ public class Node implements NodeInterface, Runnable{
 				clients.remove(client);
 				if (clients.size() == 0){
 					this.listRemovedGroups.add(group);
-					//this.listGroupsRing.remove(group);
 					this.clientsByGroup.remove(clients);
 				}
 			}
@@ -246,10 +252,9 @@ public class Node implements NodeInterface, Runnable{
 				System.out.println("LOL");
 			}
 		}
-		if(isPresent == false){
+		if(isPresent == false)
 			this.listRemovedClients.add(client);
-			//this.listClientsRing.remove(client);
-		}
+
 		System.out.println("Le client "+client.getName()+" quitte le "+groups);
 	}
 
@@ -289,6 +294,7 @@ public class Node implements NodeInterface, Runnable{
 	}
 
 	public int askIdClient() throws RemoteException{
+		while(!hasToken);
 		Random randomGenerator = new Random();
 		int randomInt = randomGenerator.nextInt(1000);
 		HashSet<Integer> listIdClient = new HashSet<>();
@@ -301,8 +307,8 @@ public class Node implements NodeInterface, Runnable{
 		return randomInt;
 	}
 
+
 	public Set<String> getListGroupes() throws RemoteException {
-		lastToken.printContenuToken();
 		return this.listGroupsRing;
 	}
 
@@ -403,11 +409,3 @@ public class Node implements NodeInterface, Runnable{
 
 
 }
-
-/*Set<String> listGroupes = new HashSet<>();
-		int i =0;
-		for(Map.Entry<String,ConcurrentLinkedQueue<ClientInterface>> mapentry : this.clientsByGroup.entrySet()){
-			listGroupes.add(mapentry.getKey());
-			i++;
-
-		}*/

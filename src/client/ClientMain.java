@@ -21,8 +21,6 @@ public class ClientMain {
 
 			Scanner scanner = new Scanner(System.in);
 			String host = args[0];
-			System.out.println("Saisir le numéro de port:");
-			int numPort = Integer.parseInt(scanner.nextLine().trim());
 
 			// Get remote object reference
 			Registry registry = LocateRegistry.getRegistry(host, 1099);
@@ -36,7 +34,7 @@ public class ClientMain {
 			int idClient = nodeInterface.askIdClient();
 			Client client = new Client(idClient,"clientName"+idClient);
 
-			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client,numPort);
+			ClientInterface c_stub = (ClientInterface) UnicastRemoteObject.exportObject(client,0);
 			HashSet<String> groupes;
 
 			while(true){
@@ -59,11 +57,16 @@ public class ClientMain {
 					msg.getGroups().addAll(groupes);
 					nodeInterface.sendMessage(msg);
 
-				} else if (cmd[0].equalsIgnoreCase("groupes")) {
+				} else if (cmd[0].equalsIgnoreCase("groups")) {
 					afficheListGroupes(nodeInterface);
 
-		        }else if(cmd[0].equalsIgnoreCase("clients")){
+		        }else if(cmd[0].equalsIgnoreCase("clients")) {
 					afficheListClients(nodeInterface);
+
+				}else if(cmd[0].equalsIgnoreCase("subgroupes")){
+		        	System.out.println("Mes groupes : ");
+					for(String group : client.getGroups())
+						System.out.println("\t"+group);
 
 				} else if (cmd[0].equalsIgnoreCase("name")){
 		        	System.out.println("Entrez votre pseudo :");
@@ -72,7 +75,9 @@ public class ClientMain {
 
 		        }  else if (cmd[0].equalsIgnoreCase("quit")){
 		        	break;
-		        }
+		        }else{
+		        	System.out.println("Mauvaise commande ou inexistante");
+				}
 			}
 			scanner.close();
 		} catch (Exception e)  {

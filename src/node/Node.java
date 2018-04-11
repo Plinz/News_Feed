@@ -46,8 +46,10 @@ public class Node implements NodeInterface, Runnable{
 	private Queue<Message> msgQueue;
 	private boolean hasToken;
 	private ReentrantLock processToken;
+	private int nbNode;
+	private Random randomGenerator;
 	
-	public Node(String queueNameRecv, String queueNameSend, int id) throws Exception{
+	public Node(String queueNameRecv, String queueNameSend, int id,int nbNode) throws Exception{
 		this.factory = new ConnectionFactory();
 		this.factory.setHost("localhost");
 		this.recv = this.factory.newConnection().createChannel();
@@ -70,6 +72,8 @@ public class Node implements NodeInterface, Runnable{
 		this.listNewGroups = new ConcurrentLinkedQueue<>();
 		hasToken = false;
 		processToken = new ReentrantLock();
+		this.nbNode = nbNode;
+		randomGenerator = new Random();
 
 	}
 	
@@ -164,13 +168,20 @@ public class Node implements NodeInterface, Runnable{
 		}
 	}
 
+	/**
+	 * Renvoi le token si l'id inscrit dans celui-ci est plus petit
+	 * que l'id du noeud. Dans le cas contraire le token n'est pas renvoyé.
+	 * A la fin il ne restera plus qu'un token correspondant à l'ID le plus petit.
+	 * Lorsque le token arrivera sur le noeud avec l'id le plus petit alors le token
+	 * avec l'écriture des messages peut commencer.
+	 * @param tok
+	 * @throws Exception
+	 */
 	private void election(Token tok) throws Exception {
 		Message m = tok.getMessages().get(0);
 		int precID = Integer.parseInt(m.getMessage());
 		if (precID != id){
 			if (precID < id) {
-				//precID = id;
-				//m.setMessage("" + precID);
 				send(tok);
 			}
 		} else if (!this.electionDone){
@@ -229,6 +240,14 @@ public class Node implements NodeInterface, Runnable{
 		System.out.println("Ajout du client "+client.getName()+" au groupe "+groups);
 	}
 
+	/**
+	 * Enleve le client de la liste de groupes dans laquelle il était présent. Puis met
+	 * à jour les différentes listes pour l'anneau puisse être informé que ce client n'est
+	 * plus présent ou qu'un groupe a été supprimé car plus aucun client n'était présent à l'intérieur
+	 * @param client le client souhaitant partir
+	 * @param groups liste de groupes quittés par le client
+	 * @throws RemoteException
+	 */
 	@Override
 	public void leave(ClientInterface client, Set<String> groups) throws RemoteException {
 		for(String group : groups){
@@ -249,7 +268,6 @@ public class Node implements NodeInterface, Runnable{
 			ConcurrentLinkedQueue<ClientInterface> clients = this.clientsByGroup.get(group);
 			if(clients.contains(client)){
 				isPresent = true;
-				System.out.println("LOL");
 			}
 		}
 		if(isPresent == false)
@@ -293,9 +311,14 @@ public class Node implements NodeInterface, Runnable{
 		return this.id;
 	}
 
+	/**
+	 * Donne un identifiant unique sur l'anneau au nouveau client créer
+	 * @return
+	 * @throws RemoteException
+	 */
 	public int askIdClient() throws RemoteException{
 		while(!hasToken);
-		Random randomGenerator = new Random();
+
 		int randomInt = randomGenerator.nextInt(1000);
 		HashSet<Integer> listIdClient = new HashSet<>();
 		for(ClientInterface client : this.listClientsRing){
@@ -307,26 +330,50 @@ public class Node implements NodeInterface, Runnable{
 		return randomInt;
 	}
 
+	/**
+	 * Vérifie que le nom définit par le nouveau client n'est pas déjà utilisé
+	 * par un autre client sur l'anneau
+	 * @param client
+	 * @param name
+	 * @return
+	 * @throws RemoteException
+	 */
 	public boolean checkAvailableClient(ClientInterface client, String name) throws RemoteException{
 		while(!hasToken);
 		boolean isPresent = false;
 		HashSet<String> listNameClient = new HashSet<>();
 		for(ClientInterface cl : this.listClientsRing){
-			if(cl.equals(name))
+			if(cl.getName().equals(name))
 				isPresent = true;
 		}
 		return isPresent;
 	}
 
-
+	/**
+	 * Getter de la liste de tout les groupes présent sur l'anneau
+	 * @return la liste des groupes sur l'anneau
+	 * @throws RemoteException
+	 */
 	public Set<String> getListGroupes() throws RemoteException {
 		return this.listGroupsRing;
 	}
 
+	/**
+	 * Getter de la liste de tout les clients présent sur l'anneau
+	 * @return la liste des clients sur l'anneau
+	 */
 	public HashSet<ClientInterface> getListClients(){
 		return this.listClientsRing;
 	}
 
+	/**
+	 * Vide les listes de clients et de groupes que le noeud a ajouté.
+	 * Pour la liste de vote des groupes à enlever, on vérifié aussi que le nombre
+	 * de vote est égal au nombre de noeud présent sur l'anneau, si c'est égal
+	 * alors on ajoute le groupe à la liste des groupes à enlever.
+	 *
+	 * @param token Le token reçu par le noeud
+	 */
 	private void clearListsToken(Token token){
 		// Vide la liste listAddedClients du token ajouté par le noeud
 		ArrayList<Tuple<Integer,ClientInterface>> tempListClient = new ArrayList<>();
@@ -363,16 +410,21 @@ public class Node implements NodeInterface, Runnable{
 		// Vide la liste listRemovedGroups du token ajouté par le noeud
 		ArrayList<Triple<Integer,String,Integer>> tempListGroupVoted = new ArrayList<>();
 		for(Triple<Integer,String,Integer> triple : token.getListRemovedGroupsVoted()){
-			if(triple.x == this.id && triple.z >= 3) {
+			if(triple.x == this.id && triple.z == nbNode) {
+				System.out.println("Le vote"+triple.z);
 				token.getListRemovedGroups().add(new Tuple<>(triple.x, triple.y));
 				tempListGroupVoted.add(triple);
-
 			}
 		}
 		token.getListRemovedGroupsVoted().removeAll(tempListGroupVoted);
 
 	}
 
+	/**
+	 * Lit les informations des listes de clients et groupes. Puis met à jour
+	 * la liste local listClientsRing et la liste local listGroupsRing
+	 * @param token Le token reçu par le noeud
+	 */
 	private void updateAndCleanListRing(Token token){
 
 		for(Tuple<Integer,ClientInterface> tuple : token.getListAddedClients())
@@ -394,6 +446,11 @@ public class Node implements NodeInterface, Runnable{
 		}
 	}
 
+	/**
+	 * Met à jour sur le token, les nouvelles informations sur les nouveaux clients et groupes
+	 * ajouté sur le noeud, afin de les transmettre à ses voisins.
+	 * @param token Le token reçu par le noeud
+	 */
 	private void updateListToken(Token token){
 
 		for(ClientInterface client : this.listNewClients)
@@ -412,7 +469,7 @@ public class Node implements NodeInterface, Runnable{
 		listNewGroups.clear();
 
 		for(String group : this.listRemovedGroups)
-			token.getListRemovedGroupsVoted().add(new Triple<>(this.id,group,1));
+			token.getListRemovedGroupsVoted().add(new Triple<>(this.id,group,0));
 
 		listRemovedGroups.clear();
 

@@ -86,16 +86,33 @@ public class ClientMain {
 		}
 	}
 
+	/**
+	 * Affiche la liste de tout les clients présent sur l'anneau
+	 * @param nodeInterface
+	 * @throws RemoteException
+	 */
 	static void afficheListClients(NodeInterface nodeInterface) throws RemoteException {
 		System.out.println("List des clients");
 		for(ClientInterface client : nodeInterface.getListClients())
 			System.out.println("\t"+client.getName());
 	}
+
+	/**
+	 * Affiche la liste de tout les groupes présent sur l'anneau
+	 * @param nodeInterface
+	 * @throws RemoteException
+	 */
 	static void afficheListGroupes(NodeInterface nodeInterface) throws RemoteException{
 		System.out.println("List des groupes");
 		for(String group : nodeInterface.getListGroupes())
 			System.out.println("\t"+group);
 	}
+
+	/**
+	 * Transforme un tableau de String en un HashSet de String
+	 * @param tab Un tableau de String
+	 * @return Le nouveau HashSet de String
+	 */
 	static HashSet<String> tabToCollection(String [] tab){
 		HashSet<String> collection = new HashSet<>();
 		for(String s : tab){
@@ -104,11 +121,21 @@ public class ClientMain {
 		return collection;
 	}
 
+	/**
+	 * Renseigne le nom du client. Si le nom du client est déjà présent sur l'anneau
+	 * alors on lui demande d'un renseigner un autre.
+	 * @param client
+	 * @param c_stub
+	 * @param nodeInterface
+	 * @param scanner
+	 * @throws RemoteException
+	 */
 	static void setAndCheckNameClient(Client client,ClientInterface c_stub,NodeInterface nodeInterface, Scanner scanner) throws RemoteException {
 		System.out.println("Entrez votre pseudo :");
 		String text = scanner.nextLine();
 		if(!text.isEmpty()) {
 			while(nodeInterface.checkAvailableClient(c_stub,text)!=false){
+				System.out.println("Le nom du client est déjà utilisé ! ");
 				System.out.println("Entrez votre pseudo :");
 				text = scanner.nextLine();
 			}

@@ -50,6 +50,8 @@ public class Node implements NodeInterface, Runnable{
 	private Random randomGenerator;
 	
 	public Node(String queueNameRecv, String queueNameSend, int id,int nbNode) throws Exception{
+
+		/*** Création des channels et queue pour utliser RabbitMQ***/
 		this.factory = new ConnectionFactory();
 		this.factory.setHost("localhost");
 		this.recv = this.factory.newConnection().createChannel();
@@ -58,25 +60,35 @@ public class Node implements NodeInterface, Runnable{
 		this.queueNameSend = queueNameSend;
 		this.recv.queueDeclare(this.queueNameRecv, false, false, false, null);
 		this.send.queueDeclare(this.queueNameSend, false, false, false, null);
-		this.id = id;
-		this.electionDone = false;
-		this.clientsByGroup = new ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>>();
-		this.msgQueue = new ConcurrentLinkedQueue<Message>();
 
+		/*** Listes pour la gestion des clients ***/
 		this.listClientsRing = new HashSet<>();
 		this.listRemovedClients = new ConcurrentLinkedQueue<>();
 		this.listNewClients = new ConcurrentLinkedQueue<>();
 
+		/*** Listes pour la gestion des groupes ***/
 		this.listGroupsRing = new HashSet<>();
 		this.listRemovedGroups = new ConcurrentLinkedQueue<>();
 		this.listNewGroups = new ConcurrentLinkedQueue<>();
+
+		/*** Autres variables ***/
 		hasToken = false;
 		processToken = new ReentrantLock();
 		this.nbNode = nbNode;
 		randomGenerator = new Random();
+		this.id = id;
+		this.electionDone = false;
 
+		/*** Liste de clients par groupes ***/
+		this.clientsByGroup = new ConcurrentHashMap<String, ConcurrentLinkedQueue<ClientInterface>>();
+
+		/*** Liste pour les messages reçu par les clients***/
+		this.msgQueue = new ConcurrentLinkedQueue<Message>();
 	}
-	
+
+	/**
+	 * Lance le thread
+	 */
 	public void run(){
 		try {
 			Token token = new Token(true,this.id);
@@ -88,7 +100,12 @@ public class Node implements NodeInterface, Runnable{
 			e.printStackTrace();
 		}	
 	}
-	
+
+	/**
+	 * Gére la reception du ou des tokens en circulation sur l'anneau. Et appelle
+	 * les différentes méthodes selon que le token soit de type election ou message.
+	 * @throws Exception
+	 */
 	private void receive() throws Exception{
 
 		Consumer consumer = new DefaultConsumer(recv) {
@@ -132,8 +149,15 @@ public class Node implements NodeInterface, Runnable{
 		};
 		recv.basicConsume(this.queueNameRecv, true, consumer);
 	}
-	
 
+	/**
+	 * Gère la gestion des messages à la reception du token. Lit les
+	 * nouveaux messages dans le token pour les publier aux clients.
+	 * Enlève tout les message publié par le noeud. Puis ajoute les nouveaux
+	 * messages que le noeud à reçu pendant le tour d'anneau
+	 * @param tok
+	 * @throws Exception
+	 */
 	private void messagesGestion(Token tok) throws Exception {
 
 		List<Message> messages = tok.getMessages();
@@ -193,7 +217,12 @@ public class Node implements NodeInterface, Runnable{
 			send(tok);
 		}
 	}
-	
+
+	/**
+	 * Publie le token sur la queue d'envoi
+	 * @param token
+	 * @throws Exception
+	 */
 	private void send(Token token) throws Exception{
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ObjectOutput out = null;

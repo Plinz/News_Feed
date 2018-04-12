@@ -1,0 +1,11 @@
+- Token pour les groupes
+- Gérer un identifiant unique par client sur l'anneau
+- Gérer la deconnexion d'un des noeuds.
+
+
+Quand reçoit token:
+Vide les added clients dans le token ajouter par le noeud
+vide les remove clients dans le token ajouter par le noeud
+Met à jour la liste total des clients
+
+met chose pour les groups

@@ -346,8 +346,6 @@ public class Node implements NodeInterface, Runnable{
 	 * @throws RemoteException
 	 */
 	public int askIdClient() throws RemoteException{
-		while(!hasToken);
-
 		int randomInt = randomGenerator.nextInt(1000);
 		HashSet<Integer> listIdClient = new HashSet<>();
 		for(ClientInterface client : this.listClientsRing){
@@ -368,7 +366,6 @@ public class Node implements NodeInterface, Runnable{
 	 * @throws RemoteException
 	 */
 	public boolean checkAvailableClient(ClientInterface client, String name) throws RemoteException{
-		while(!hasToken);
 		boolean isPresent = false;
 		HashSet<String> listNameClient = new HashSet<>();
 		for(ClientInterface cl : this.listClientsRing){
